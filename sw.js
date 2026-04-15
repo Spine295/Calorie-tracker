@@ -1,8 +1,7 @@
-const CACHE_NAME = 'food-tracker-v2';
+const CACHE_NAME = 'food-tracker-v3';
 const DB_NAME = 'food-db';
 const STORE_NAME = 'calories';
 
-// App shell files
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -11,7 +10,7 @@ const STATIC_ASSETS = [
     '/512.png'
 ];
 
-// Install ? cache app shell
+// INSTALL
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
@@ -19,12 +18,12 @@ self.addEventListener('install', (event) => {
     self.skipWaiting();
 });
 
-// Activate ? take control immediately
+// ACTIVATE
 self.addEventListener('activate', (event) => {
-    event.waitUntil(clients.claim());
+    event.waitUntil(self.clients.claim());
 });
 
-// IndexedDB helper
+// -------- IndexedDB --------
 function openDB() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, 1);
@@ -60,21 +59,24 @@ async function setCalories(val) {
     });
 }
 
-// Notify all clients
+// -------- Broadcast to UI --------
 async function broadcast(value) {
-    const allClients = await self.clients.matchAll();
-    allClients.forEach(client => {
+    const clients = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true
+    });
+
+    for (const client of clients) {
         client.postMessage({
             type: 'CURRENT_CALORIES',
             value
         });
-    });
+    }
 }
 
-// Handle messages
+// -------- Messages --------
 self.addEventListener('message', (event) => {
     const data = event.data;
-
     if (!data) return;
 
     if (data.type === 'GET_CALORIES') {
@@ -84,33 +86,27 @@ self.addEventListener('message', (event) => {
     }
 
     if (data.type === 'ADD_CALORIES') {
-        event.waitUntil(
-            (async () => {
-                const current = await getCalories();
-                const updated = current + data.value;
-                await setCalories(updated);
-                await broadcast(updated);
-            })()
-        );
+        event.waitUntil((async () => {
+            const current = await getCalories();
+            const updated = current + data.value;
+            await setCalories(updated);
+            await broadcast(updated);
+        })());
     }
 
     if (data.type === 'RESET_CALORIES') {
-        event.waitUntil(
-            (async () => {
-                await setCalories(0);
-                await broadcast(0);
-            })()
-        );
+        event.waitUntil((async () => {
+            await setCalories(0);
+            await broadcast(0);
+        })());
     }
 });
 
-// Offline support (cache-first)
+// -------- Fetch (offline) --------
 self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET') return;
 
     event.respondWith(
-        caches.match(event.request).then((cached) => {
-            return cached || fetch(event.request);
-        })
+        caches.match(event.request).then(res => res || fetch(event.request))
     );
 });
