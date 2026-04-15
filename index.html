@@ -22,20 +22,9 @@
         const display = document.getElementById('consumption');
         const inputField = document.getElementById('calories');
 
-        // Register service worker
-        async function init() {
-            if ('serviceWorker' in navigator) {
-                await navigator.serviceWorker.register('sw.js');
-                await navigator.serviceWorker.ready;
-                requestCurrentTotal();
-            }
-        }
-
         function sendMessage(msg) {
             if (navigator.serviceWorker.controller) {
                 navigator.serviceWorker.controller.postMessage(msg);
-            } else {
-                console.warn("No service worker controller yet");
             }
         }
 
@@ -43,12 +32,29 @@
             sendMessage({ type: 'GET_CALORIES' });
         }
 
-        // Listen for updates from SW
+        // Listen for SW messages
         navigator.serviceWorker.addEventListener('message', (event) => {
             if (event.data.type === 'CURRENT_CALORIES') {
                 display.innerText = event.data.value;
             }
         });
+
+        async function init() {
+            if (!('serviceWorker' in navigator)) return;
+
+            await navigator.serviceWorker.register('sw.js');
+            await navigator.serviceWorker.ready;
+
+            // If already controlled → request data
+            if (navigator.serviceWorker.controller) {
+                requestCurrentTotal();
+            }
+
+            // If not yet controlled → wait for it
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                requestCurrentTotal();
+            });
+        }
 
         document.getElementById('logBtn').addEventListener('click', () => {
             const val = parseInt(inputField.value);
