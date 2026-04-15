@@ -1,13 +1,14 @@
-const CACHE_NAME = 'food-tracker-v3';
+const CACHE_NAME = 'food-tracker-v4';
 const DB_NAME = 'food-db';
 const STORE_NAME = 'calories';
 
+// ✅ RELATIVE PATHS (CRITICAL FOR GITHUB PAGES)
 const STATIC_ASSETS = [
-    '/',
-    '/index.html',
-    '/manifest.json',
-    '/192.png',
-    '/512.png'
+    './',
+    './index.html',
+    './manifest.json',
+    './192.png',
+    './512.png'
 ];
 
 // INSTALL
@@ -59,7 +60,7 @@ async function setCalories(val) {
     });
 }
 
-// -------- Broadcast to UI --------
+// -------- Broadcast --------
 async function broadcast(value) {
     const clients = await self.clients.matchAll({
         type: 'window',
@@ -102,7 +103,7 @@ self.addEventListener('message', (event) => {
     }
 });
 
-// -------- Fetch (offline) --------
+// FETCH (offline)
 self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET') return;
 
