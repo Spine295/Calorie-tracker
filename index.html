@@ -1,0 +1,74 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Food Tracker</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000000">
+
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <h1>Food Reminder</h1>
+
+    <p>Total Calories Consumed: <strong id="consumption">0</strong></p>
+
+    <input type="number" id="calories" placeholder="Enter calories">
+    <button id="logBtn">Log food</button>
+    <button id="resetBtn" style="color: red;">Reset Day</button>
+
+    <script>
+        const display = document.getElementById('consumption');
+        const inputField = document.getElementById('calories');
+
+        // Register service worker
+        async function init() {
+            if ('serviceWorker' in navigator) {
+                await navigator.serviceWorker.register('sw.js');
+                await navigator.serviceWorker.ready;
+                requestCurrentTotal();
+            }
+        }
+
+        function sendMessage(msg) {
+            if (navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage(msg);
+            } else {
+                console.warn("No service worker controller yet");
+            }
+        }
+
+        function requestCurrentTotal() {
+            sendMessage({ type: 'GET_CALORIES' });
+        }
+
+        // Listen for updates from SW
+        navigator.serviceWorker.addEventListener('message', (event) => {
+            if (event.data.type === 'CURRENT_CALORIES') {
+                display.innerText = event.data.value;
+            }
+        });
+
+        document.getElementById('logBtn').addEventListener('click', () => {
+            const val = parseInt(inputField.value);
+
+            if (isNaN(val) || val <= 0) {
+                alert("Enter a valid positive number");
+                return;
+            }
+
+            sendMessage({ type: 'ADD_CALORIES', value: val });
+            inputField.value = "";
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (confirm("Reset total to 0?")) {
+                sendMessage({ type: 'RESET_CALORIES' });
+            }
+        });
+
+        init();
+    </script>
+</body>
+</html>
