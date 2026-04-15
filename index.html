@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#000000">
 
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="./manifest.json">
 </head>
 <body>
     <h1>Food Reminder</h1>
@@ -22,9 +22,16 @@
         const display = document.getElementById('consumption');
         const inputField = document.getElementById('calories');
 
+        // -------- SAFETY: fallback UI update --------
+        function updateUI(value) {
+            display.innerText = value;
+        }
+
         function sendMessage(msg) {
             if (navigator.serviceWorker.controller) {
                 navigator.serviceWorker.controller.postMessage(msg);
+            } else {
+                console.warn("No controller yet");
             }
         }
 
@@ -34,23 +41,21 @@
 
         // Listen for SW messages
         navigator.serviceWorker.addEventListener('message', (event) => {
-            if (event.data.type === 'CURRENT_CALORIES') {
-                display.innerText = event.data.value;
+            if (event.data?.type === 'CURRENT_CALORIES') {
+                updateUI(event.data.value);
             }
         });
 
         async function init() {
             if (!('serviceWorker' in navigator)) return;
 
-            await navigator.serviceWorker.register('sw.js');
+            const reg = await navigator.serviceWorker.register('./sw.js');
             await navigator.serviceWorker.ready;
 
-            // If already controlled → request data
-            if (navigator.serviceWorker.controller) {
-                requestCurrentTotal();
-            }
+            // ALWAYS request once ready
+            requestCurrentTotal();
 
-            // If not yet controlled → wait for it
+            // Fix first-load issue
             navigator.serviceWorker.addEventListener('controllerchange', () => {
                 requestCurrentTotal();
             });
@@ -64,12 +69,17 @@
                 return;
             }
 
+            // Optimistic UI update (instant feedback)
+            const current = parseInt(display.innerText) || 0;
+            updateUI(current + val);
+
             sendMessage({ type: 'ADD_CALORIES', value: val });
             inputField.value = "";
         });
 
         document.getElementById('resetBtn').addEventListener('click', () => {
             if (confirm("Reset total to 0?")) {
+                updateUI(0);
                 sendMessage({ type: 'RESET_CALORIES' });
             }
         });
